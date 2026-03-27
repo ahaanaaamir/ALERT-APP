@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # =========================
-# SECRETS (SECURE)
+# SECRETS
 # =========================
 EMAIL_ADDRESS = st.secrets["EMAIL"]
 APP_PASSWORD = st.secrets["APP_PASSWORD"]
@@ -47,7 +47,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================
-# SESSION STATE
+# SESSION
 # =========================
 if "offset" not in st.session_state:
     st.session_state.offset = 0
@@ -72,35 +72,78 @@ st.sidebar.header("⚙ Search Settings")
 LIMIT = st.sidebar.slider("Results per page", 5, 20, 10)
 
 # =========================
-# SEARCH FUNCTION (NO API KEY NEEDED)
+# SEARCH FUNCTION (MULTI API)
 # =========================
 def search_papers(query, offset=0):
 
-    url = "https://api.semanticscholar.org/graph/v1/paper/search"
+    results = []
+    seen_titles = set()
 
-    params = {
-        "query": query,
-        "offset": offset,
-        "limit": LIMIT,
-        "fields": "title,url,year"
-    }
-
+    # ---------- Semantic Scholar ----------
     try:
-        response = requests.get(url, params=params, timeout=10)
+        url = "https://api.semanticscholar.org/graph/v1/paper/search"
+        params = {
+            "query": query,
+            "offset": offset,
+            "limit": LIMIT,
+            "fields": "title,url,year"
+        }
 
-        if response.status_code == 429:
-            st.warning("Rate limit hit. Waiting 2 seconds...")
+        res = requests.get(url, params=params, timeout=10)
+
+        if res.status_code == 429:
             time.sleep(2)
-            return []
+        elif res.status_code == 200:
+            data = res.json()
+            for p in data.get("data", []):
+                title = p.get("title", "")
+                if title and title not in seen_titles:
+                    seen_titles.add(title)
+                    results.append(p)
 
-        response.raise_for_status()
+    except:
+        pass
 
-        data = response.json()
-        return data.get("data", [])
+    # ---------- OpenAlex ----------
+    try:
+        url = f"https://api.openalex.org/works?search={urllib.parse.quote(query)}&per_page=10"
+        r = requests.get(url, timeout=10).json()
 
-    except requests.exceptions.RequestException as e:
-        st.error(f"API Error: {e}")
-        return []
+        for w in r.get("results", []):
+            title = w.get("display_name", "")
+            if title and title not in seen_titles:
+                seen_titles.add(title)
+                results.append({
+                    "title": title,
+                    "url": w.get("id"),
+                    "year": w.get("publication_year")
+                })
+    except:
+        pass
+
+    # ---------- arXiv ----------
+    try:
+        url = f"http://export.arxiv.org/api/query?search_query=all:{query}&max_results=10"
+        r = requests.get(url)
+
+        entries = r.text.split("<entry>")[1:]
+
+        for e in entries:
+            title = e.split("<title>")[1].split("</title>")[0].strip()
+            link = e.split("<id>")[1].split("</id>")[0]
+
+            if title and title not in seen_titles:
+                seen_titles.add(title)
+                results.append({
+                    "title": title,
+                    "url": link,
+                    "year": ""
+                })
+    except:
+        pass
+
+    return results
+
 
 # =========================
 # EMAIL FUNCTION
