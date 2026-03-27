@@ -11,6 +11,15 @@ st.set_page_config(page_title="Research Paper Search", layout="wide")
 EMAIL = st.secrets["EMAIL"]
 APP_PASSWORD = st.secrets["APP_PASSWORD"]
 
+S2_API_KEY = st.secrets["S2_API_KEY"]
+
+headers = {
+    "x-api-key": S2_API_KEY
+}
+
+requests.get(url, headers=headers)
+
+
 # ---------- SESSION ----------
 if "saved_papers" not in st.session_state:
     st.session_state.saved_papers = []
