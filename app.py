@@ -8,8 +8,8 @@ from email.message import EmailMessage
 st.set_page_config(page_title="Research Paper Search", layout="wide")
 
 # ---------- SECRETS ----------
-EMAIL = st.secrets["EMAIL"]
-APP_PASSWORD = st.secrets["APP_PASSWORD"]
+EMAIL = "[researchalertapp@gmail.com](mailto:researchalertapp@gmail.com)"
+APP_PASSWORD = "qkahcamlhmonjesm"
 
 # ---------- SESSION ----------
 if "saved_papers" not in st.session_state:
