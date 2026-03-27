@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-import os
+import urllib.parse
 import smtplib
 import time
 from email.mime.text import MIMEText
@@ -15,12 +15,10 @@ st.set_page_config(
 )
 
 # =========================
-# CONFIG
+# SECRETS (SECURE)
 # =========================
-API_KEY = os.getenv("S2_API_KEY")
-
-EMAIL_ADDRESS = "researchalertapp@gmail.com"
-APP_PASSWORD = "mxulljzpyjfpwydc"
+EMAIL_ADDRESS = st.secrets["EMAIL"]
+APP_PASSWORD = st.secrets["APP_PASSWORD"]
 
 # =========================
 # CSS
@@ -74,13 +72,9 @@ st.sidebar.header("⚙ Search Settings")
 LIMIT = st.sidebar.slider("Results per page", 5, 20, 10)
 
 # =========================
-# SEARCH FUNCTION
+# SEARCH FUNCTION (NO API KEY NEEDED)
 # =========================
 def search_papers(query, offset=0):
-
-    if not API_KEY:
-        st.error("❌ API key not found. Set S2_API_KEY in environment.")
-        return []
 
     url = "https://api.semanticscholar.org/graph/v1/paper/search"
 
@@ -91,15 +85,11 @@ def search_papers(query, offset=0):
         "fields": "title,url,year"
     }
 
-    headers = {
-        "x-api-key": API_KEY
-    }
-
     try:
-        response = requests.get(url, params=params, headers=headers)
+        response = requests.get(url, params=params, timeout=10)
 
         if response.status_code == 429:
-            st.warning("Rate limit reached. Waiting 2 seconds...")
+            st.warning("Rate limit hit. Waiting 2 seconds...")
             time.sleep(2)
             return []
 
@@ -137,7 +127,7 @@ def send_email(receiver):
 
     try:
         server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(EMAIL_ADDRESS.strip(), APP_PASSWORD.strip())
+        server.login(EMAIL_ADDRESS, APP_PASSWORD)
         server.sendmail(EMAIL_ADDRESS, receiver, msg.as_string())
         server.quit()
 
@@ -176,7 +166,8 @@ if st.session_state.query:
 
             st.markdown(f"""
             <div class="result-card">
-                <h4><a href="{paper.get('url','#')}" target="_blank">{paper.get('title','No Title')}</a></h4>
+                <h4><a href="{paper.get('url','#')}" target="_blank">
+                {paper.get('title','No Title')}</a></h4>
                 <p><b>Year:</b> {paper.get('year','N/A')}</p>
             </div>
             """, unsafe_allow_html=True)
